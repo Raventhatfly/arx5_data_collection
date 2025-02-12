@@ -2,8 +2,10 @@
 import time
 import rclpy
 import sys
+import os
 from message_filters import ApproximateTimeSynchronizer,Subscriber
-sys.path.append("/home/dc/anaconda3/envs/dc/lib/python3.8/site-packages")
+# pypkg_path = os.path.join(os.path.expanduser('~'),"anaconda3/envs/")
+# sys.path.append("/home/dc/anaconda3/envs/dc/lib/python3.8/site-packages")
 import numpy as np
 import cv2
 import h5py
@@ -41,91 +43,120 @@ data_dict = {
         }
 
 
-def callback(JointCTR2,JointInfo2,f2p,image_mid,image_right):
+# def callback(JointCTR2,JointInfo2,f2p,image_mid,image_right):
+#     global data_dict, step, Max_step, dataset_path,video_path
+    
+#     save=True
+#     bridge = CvBridge()
+#     image_mid = bridge.imgmsg_to_cv2(image_mid, "bgr8")
+#     image_right = bridge.imgmsg_to_cv2(image_right, "bgr8")
+#     eef_qpos=np.array([f2p.x,f2p.y,f2p.z,f2p.roll,f2p.pitch,f2p.yaw,f2p.gripper])
+#     action = np.array(JointCTR2.joint_pos)
+#     qpos =np.array(JointInfo2.joint_pos)
+#     #print("eef_qpos:", eef_qpos)
+#     #print("action:", action)
+#     if save:
+#         data_dict["/eef_qpos"].append(eef_qpos)
+#         data_dict["/action"].append(action)
+#         data_dict["/observations/qpos"].append(qpos)
+#         data_dict["/observations/images/mid"].append(image_mid)
+#         data_dict["/observations/images/right"].append(image_right)
+
+#     canvas = np.zeros((480, 1280, 3), dtype=np.uint8)
+
+#     # 将图像复制到画布的特定位置
+#     # canvas[:, :640, :] = image_left
+#     # canvas[:, 640:1280, :] = image_mid
+#     # canvas[:, 1280:, :] = image_right
+#     canvas[:, :640, :] = image_mid
+#     canvas[:, 640:1280, :] = image_right
+
+#     # 在一个窗口中显示排列后的图像
+#     cv2.imshow('Multi Camera Viewer', canvas)
+  
+#     cv2.waitKey(1)
+#     step = step+1
+#     print(step)
+#     if step >= Max_step and save:
+#         print('end__________________________________')
+#         with h5py.File(dataset_path,'w',rdcc_nbytes=1024 ** 2 * 10) as root:
+#             root.attrs['sim'] = True
+#             obs = root.create_group('observations')
+#             image = obs.create_group('images')
+#             _ = image.create_dataset('mid', (Max_step, 480, 640, 3), dtype='uint8',
+#                                     chunks=(1, 480, 640, 3), )
+#             _ = image.create_dataset('right', (Max_step, 480, 640, 3), dtype='uint8',
+#                                     chunks=(1, 480, 640, 3), )
+#             _ = obs.create_dataset('qpos',(Max_step,7))
+#             _ = root.create_dataset('action',(Max_step,7))
+#             _ = root.create_dataset('eef_qpos',(Max_step,7))
+#             for name, array in data_dict.items():
+#                 root[name][...] = array
+#             mid_images = root['/observations/images/mid'][...]
+#             right_images = root['/observations/images/right'][...]
+#             images = np.concatenate([mid_images,right_images],axis=2)
+
+#             video_path = f'{video_path}video.mp4'  # Assuming dataset_path ends with ".hdf5"
+#             height, width, _ = images[0].shape
+#             fps = 10  # 发布频率为10Hz
+#             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#             video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+#             for img in images:
+#                 video_writer.write(img)
+#             video_writer.release()
+#         rclpy.shutdown("\n************************signal_shutdown********sample successfully!*************************************")
+#         quit("sample successfully!")
+
+def callback(img):
     global data_dict, step, Max_step, dataset_path,video_path
     
     save=True
     bridge = CvBridge()
-    image_mid = bridge.imgmsg_to_cv2(image_mid, "bgr8")
-    image_right = bridge.imgmsg_to_cv2(image_right, "bgr8")
-    eef_qpos=np.array([f2p.x,f2p.y,f2p.z,f2p.roll,f2p.pitch,f2p.yaw,f2p.gripper])
-    action = np.array(JointCTR2.joint_pos)
-    qpos =np.array(JointInfo2.joint_pos)
-    #print("eef_qpos:", eef_qpos)
-    #print("action:", action)
-    if save:
-        data_dict["/eef_qpos"].append(eef_qpos)
-        data_dict["/action"].append(action)
-        data_dict["/observations/qpos"].append(qpos)
-        data_dict["/observations/images/mid"].append(image_mid)
-        data_dict["/observations/images/right"].append(image_right)
+    image = bridge.imgmsg_to_cv2(img, "bgr8")
 
-    canvas = np.zeros((480, 1280, 3), dtype=np.uint8)
+    canvas = np.zeros((480, 640, 3), dtype=np.uint8)
 
     # 将图像复制到画布的特定位置
     # canvas[:, :640, :] = image_left
     # canvas[:, 640:1280, :] = image_mid
     # canvas[:, 1280:, :] = image_right
-    canvas[:, :640, :] = image_mid
-    canvas[:, 640:1280, :] = image_right
+    canvas = image
 
     # 在一个窗口中显示排列后的图像
     cv2.imshow('Multi Camera Viewer', canvas)
   
     cv2.waitKey(1)
-    step = step+1
-    print(step)
-    if step >= Max_step and save:
-        print('end__________________________________')
-        with h5py.File(dataset_path,'w',rdcc_nbytes=1024 ** 2 * 10) as root:
-            root.attrs['sim'] = True
-            obs = root.create_group('observations')
-            image = obs.create_group('images')
-            _ = image.create_dataset('mid', (Max_step, 480, 640, 3), dtype='uint8',
-                                    chunks=(1, 480, 640, 3), )
-            _ = image.create_dataset('right', (Max_step, 480, 640, 3), dtype='uint8',
-                                    chunks=(1, 480, 640, 3), )
-            _ = obs.create_dataset('qpos',(Max_step,7))
-            _ = root.create_dataset('action',(Max_step,7))
-            _ = root.create_dataset('eef_qpos',(Max_step,7))
-            for name, array in data_dict.items():
-                root[name][...] = array
-            mid_images = root['/observations/images/mid'][...]
-            right_images = root['/observations/images/right'][...]
-            images = np.concatenate([mid_images,right_images],axis=2)
-
-            video_path = f'{video_path}video.mp4'  # Assuming dataset_path ends with ".hdf5"
-            height, width, _ = images[0].shape
-            fps = 10  # 发布频率为10Hz
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
-            for img in images:
-                video_writer.write(img)
-            video_writer.release()
-        rclpy.shutdown("\n************************signal_shutdown********sample successfully!*************************************")
+    step += 1
+    
+    if step >= Max_step:
+        
+        print(step)
+        rclpy.shutdown()
         quit("sample successfully!")
         
 def main():
     #config my camera
-    time.sleep(2)  # wait 2s to start
+    time.sleep(1)  # wait 2s to start
+    rclpy.init()
     
-    rclpy.create_node("My_node1")
+    node = rclpy.create_node("My_node1")
     a=time.time()
     # master1_pos = Subscriber("master1_pos_back",PosCmd)
     # master2_pos = Subscriber("master2_pos_back",PosCmd)
     # follow1_pos = Subscriber("follow1_pos_back",PosCmd)
-    follow2_pos = Subscriber("follow2_pos_back",PosCmd)
-    # master1 = Subscriber("joint_control",JointControl)
-    master2 = Subscriber("joint_control2",JointControl)
-    # follow1 = Subscriber("joint_information",JointInformation)
-    follow2 = Subscriber("joint_information2",JointInformation)
-    image_mid = Subscriber("img1",Image)
+    # follow2_pos = Subscriber("follow2_pos_back",PosCmd)
+    # # master1 = Subscriber("joint_control",JointControl)
+    # master2 = Subscriber("joint_control2",JointControl)
+    # # follow1 = Subscriber("joint_information",JointInformation)
+    # follow2 = Subscriber("joint_information2",JointInformation)
+    img1 = Subscriber(node, Image,"/camera/camera/color/image_rect_raw")
     # image_left = Subscriber("left_camera",Image)
     # image_right = Subscriber("right_camera",Image)
-    ats = ApproximateTimeSynchronizer([master2,follow2,follow2_pos,image_mid,image_right],slop=0.03,queue_size=2)
+    # ats = ApproximateTimeSynchronizer([master2,follow2,follow2_pos,image_mid,image_right],slop=0.03,queue_size=2)
+    ats = ApproximateTimeSynchronizer([img1],slop=0.03,queue_size=2)
     ats.registerCallback(callback)
     
-    rclpy.spin()
+    rclpy.spin(node)
 
 if __name__ =="__main__":
     main()

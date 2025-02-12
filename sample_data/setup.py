@@ -13,14 +13,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='philaptop',
+    maintainer='Feiyang Wu',
     maintainer_email='feiyangw.21@intl.zju.edu.cn',
     description='TODO: Package description',
-    license='TODO: License declaration',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'sample_data/sample_data.py:main'
+            'sample = sample_data.sample:main'
         ],
     },
 )
