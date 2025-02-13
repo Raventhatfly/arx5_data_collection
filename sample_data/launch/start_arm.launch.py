@@ -32,35 +32,6 @@ def generate_launch_description():
         parameters=[params_file],
     )
 
-    # camera_node_top = Node(
-    #     package='realsense2_camera',
-    #     namespace='camera1',
-    #     executable='realsense2_camera_node',
-    #     name='camera',
-    #     parameters=[{'serial_no': '230322271473',  # Replace with your camera's serial number
-    #                 'device_type': 'd405',  # Replace with your camera model
-    #                 }],
-    #     output='screen'
-    # )
-
-    # camera_node_gripper = Node(
-    #     package='realsense2_camera',
-    #     namespace='camera2',
-    #     executable='realsense2_camera_node',
-    #     name='camera',
-    #     parameters=[{'serial_no': '230322277180',  # Replace with your camera's serial number
-    #                 'device_type': 'd405',          # Replace with your camera model
-    #                 }],
-    #     output='screen'
-    # )
-
-    # node2 = Node(
-    #     package='your_package_name',
-    #     executable='your_node_executable2',
-    #     name='your_node_name2',
-    #     output='screen'
-    # )
-
     # Add the nodes to the LaunchDescription
     return LaunchDescription([
         DeclareLaunchArgument(name='params_file',
