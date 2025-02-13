@@ -49,10 +49,12 @@ data_dict = {
 class SampleNode(Node):
     def __init__(self):
         super().__init__('SampleNode')
-        self.master_publisher_ = self.create_publisher(RobotCmd, "/arm_control_master", 10)
-        self.follow_publisher_ = self.create_publisher(RobotCmd, "/arm_control_follow", 10)
+        self.master_publisher_ = self.create_publisher(RobotCmd, "/arm_master_cmd", 10)
+        self.follow_publisher_ = self.create_publisher(RobotCmd, "/arm_follow_cmd", 10)
+        # self.subscription = self.create_subscription(
+        #     RobotStatus, '/arm_master_status', self.master_callback, 10)
         self.subscription = self.create_subscription(
-            RobotStatus, '/arm_status_master', self.listener_callback, 10)
+            RobotStatus, '/arm_master_status', self.follow_callback, 10)
         self.subscription  # prevent unused variable warning
 
         timer_period = 0.01  # seconds
@@ -63,16 +65,22 @@ class SampleNode(Node):
 
     def timer_callback(self):
         self.follow_publisher_.publish(self.follow_cmd)
+        if self.start_follow:
+            master_cmd = RobotCmd()
+            master_cmd.mode = 3
+            self.master_publisher_.publish(master_cmd)
     
     def master_publish(self,cmd: RobotCmd):
         self.master_publisher_.publish(cmd)
 
-    def listener_callback(self, msg):
+    # def master_callback(self.msg):
+
+    def follow_callback(self, msg):
         if self.start_follow:
-            self.follow_cmd.mode = 4
-            self.follow_cmd.joint_pos = msg.joint_pos
-            self.follow_cmd.eef_pos = msg.eef_pos
-            self.follow_cmd.gripper = msg.gripper
+            self.follow_cmd.mode = 5
+            self.follow_cmd.joint_pos = msg.joint_pos[:6]
+            self.follow_cmd.end_pos = msg.end_pos
+            self.follow_cmd.gripper = msg.joint_pos[6]
 
 
 def callback(img1, img2, follow_status):
@@ -159,9 +167,10 @@ def main():
 
     master_cmd.mode = 3                     # Master Arm Set to gravity compenstaion mode, free to move
     node.master_publish(master_cmd)         # Publish to Master Arm
-    node.follow_cmd.mode = 4                # Follow Arm Set to End Effector Control Mode
+    node.follow_cmd.mode = 5                # Follow Arm Set to End Effector Control Mode
 
     node.get_logger().info("Arm Set to master-follow mode!")
+    node.start_follow = True
 
     # master1_pos = Subscriber("master1_pos_back",PosCmd)
     # master2_pos = Subscriber("master2_pos_back",PosCmd)
