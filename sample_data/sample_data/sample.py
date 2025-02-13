@@ -1,4 +1,3 @@
-#!/home/dc/anaconda3/envs/dc/bin/python
 import time
 import rclpy
 import sys
