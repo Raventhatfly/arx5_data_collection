@@ -14,6 +14,7 @@ from cv_bridge import CvBridge
 # from arm_control.msg import JointControl
 # from arm_control.msg import PosCmd
 import rclpy.publisher
+from rclpy.node import Node
 from sensor_msgs.msg import Image
 from arm_control.msg import PosCmd
 from arx5_arm_msg.msg import RobotCmd
@@ -48,11 +49,11 @@ data_dict = {
 
 class SampleNode(Node):
     def __init__(self):
-        super().__init__('minimal_publisher')
+        super().__init__('SampleNode')
         self.master_publisher_ = self.create_publisher(RobotCmd, "/arm_control_master", 10)
-        self.follow_publisher_ = self.create_publisher(RobotCmd, "/arm_control_master", 10)
+        self.follow_publisher_ = self.create_publisher(RobotCmd, "/arm_control_follow", 10)
         self.subscription = self.create_subscription(
-            RobotStatus, 'arm_status', self.listener_callback, 10)
+            RobotStatus, '/arm_status_master', self.listener_callback, 10)
         self.subscription  # prevent unused variable warning
 
         timer_period = 0.01  # seconds
