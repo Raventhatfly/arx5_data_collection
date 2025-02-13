@@ -33,11 +33,11 @@ global data_dict, step, Max_step, dataset_path
 # parameters
 step = 0
 Max_step = 200
-directory_path = f'/home/dc/Downloads'
+directory_path = f'/home/phi/wfy/dp_data'
 extension = '.hdf5' 
 episode_idx = count_files_with_extension(directory_path, extension)
 dataset_path = f'{directory_path}/episode_{episode_idx}.hdf5'
-video_path=f'/home/dc/Downloads/{episode_idx}'
+video_path=f'/home/phi/wfy/dp_data/{episode_idx}'
 data_dict = {
         '/observations/qpos': [],
         '/action': [],
