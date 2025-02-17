@@ -29,12 +29,12 @@ def count_files_with_extension(directory, extension):
                 count += 1
     return count
 
-global data_dict, step, Max_step, dataset_path, recording
+global data_dict, step, Max_step, dataset_path, finish_recording
 
 # parameters
 step = 0
 Max_step = 2000
-recording = False
+finish_recording = False
 directory_path = f'/home/philaptop/wfy/dp_data'
 extension = '.hdf5' 
 episode_idx = count_files_with_extension(directory_path, extension)
@@ -93,20 +93,24 @@ class SampleNode(Node):
             # self.follow_cmd.joint_cur = msg.joint_cur
     
     def on_press(self,key):
-        self.start_follow = False
+        global finish_recording
         if key == keyboard.Key.esc:
+            self.start_follow = False
+            finish_recording = True
             rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
             cmd = RobotCmd()
             cmd.mode = 1        # Reset to initial Condition
             
             self.follow_publisher_.publish(cmd)
+            self.follow_cmd.mode = 1
             self.master_publisher_.publish(cmd)
             rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
-            rclpy.shutdown()
+            # time.sleep(1)
+            # rclpy.shutdown()
 
 
 def callback(img1, img2, follow_status):
-    global data_dict, step, Max_step, dataset_path,video_path
+    global data_dict, step, Max_step, dataset_path, video_path, finish_recording
     
     save=True
     bridge = CvBridge()
@@ -120,7 +124,8 @@ def callback(img1, img2, follow_status):
 
     #print("eef_qpos:", eef_qpos)
     #print("action:", action)
-    if save:
+    # if save:
+    if not finish_recording:
         data_dict["/eef_qpos"].append(eef_qpos)
         data_dict["/action"].append(action)
         data_dict["/observations/qpos"].append(qpos)
@@ -128,6 +133,8 @@ def callback(img1, img2, follow_status):
         data_dict["/observations/images/top"].append(image_top)
         # data_dict["/observations/velocity"].append(velocity)
         # data_dict["/observations/current"].append(current)
+
+        step += 1
 
     # canvas = np.zeros((480, 1280, 3), dtype=np.uint8)
 
@@ -142,23 +149,36 @@ def callback(img1, img2, follow_status):
     # cv2.imshow('Multi Camera Viewer', canvas)
     # cv2.waitKey(1)
 
-    step = step+1
-    print(step)
-    if step >= Max_step and save:
+    # print(finish_recording)
+    if step >= Max_step or finish_recording:
         print('end__________________________________')
         with h5py.File(dataset_path,'w',rdcc_nbytes=1024 ** 2 * 10) as root:
             root.attrs['sim'] = True
             obs = root.create_group('observations')
             image = obs.create_group('images')
-            _ = image.create_dataset('gripper', (Max_step, 480, 640, 3), dtype='uint8',
+
+            # _ = image.create_dataset('gripper', (Max_step, 480, 640, 3), dtype='uint8',
+            #                         chunks=(1, 480, 640, 3), )
+            # _ = image.create_dataset('top', (Max_step, 480, 640, 3), dtype='uint8',
+            #                         chunks=(1, 480, 640, 3), )
+            # _ = obs.create_dataset('qpos',(Max_step,7))
+            # _ = root.create_dataset('action',(Max_step,7))
+            # _ = root.create_dataset('eef_qpos',(Max_step,6))
+            # # _ = root.create_dataset('velocity',(Max_step,7))
+            # # _ = root.create_dataset('current',(Max_step,7))
+
+            #---------------------- Mine ------------------
+            _ = image.create_dataset('gripper', (step, 480, 640, 3), dtype='uint8',
                                     chunks=(1, 480, 640, 3), )
-            _ = image.create_dataset('top', (Max_step, 480, 640, 3), dtype='uint8',
+            _ = image.create_dataset('top', (step, 480, 640, 3), dtype='uint8',
                                     chunks=(1, 480, 640, 3), )
-            _ = obs.create_dataset('qpos',(Max_step,7))
-            _ = root.create_dataset('action',(Max_step,7))
-            _ = root.create_dataset('eef_qpos',(Max_step,6))
+            _ = obs.create_dataset('qpos',(step,7))
+            _ = root.create_dataset('action',(step,7))
+            _ = root.create_dataset('eef_qpos',(step,6))
             # _ = root.create_dataset('velocity',(Max_step,7))
             # _ = root.create_dataset('current',(Max_step,7))
+
+            #---------------------- Mine ------------------
 
 
             for name, array in data_dict.items():
@@ -176,8 +196,8 @@ def callback(img1, img2, follow_status):
                 video_writer.write(img)
             video_writer.release()
         
-        # rclpy.shutdown()
-        # quit("sample successfully!")
+        rclpy.logging.get_logger("sample_node").info("Sampling Finished!")
+        rclpy.shutdown()
 
         
 def main():
@@ -198,6 +218,7 @@ def main():
     node.follow_cmd.mode = 5                # Follow Arm Set to End Effector Control Mode
 
     node.get_logger().info("Arm Set to master-follow mode!")
+    node.get_logger().info("Press 'ESC' to stop recording and reset the arm to initial condition.")
     node.start_follow = True
 
     # master1_pos = Subscriber("master1_pos_back",PosCmd)
