@@ -1,6 +1,7 @@
 import time
 import rclpy
 import sys
+import signal
 import os
 from message_filters import ApproximateTimeSynchronizer,Subscriber
 # pypkg_path = os.path.join(os.path.expanduser('~'),"anaconda3/envs/")
@@ -9,9 +10,9 @@ import numpy as np
 import cv2
 import h5py
 from cv_bridge import CvBridge
-# from arm_control.msg import JointInformation
-# from arm_control.msg import JointControl
-# from arm_control.msg import PosCmd
+from pynput import keyboard
+
+import rclpy.logging
 import rclpy.publisher
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -28,11 +29,12 @@ def count_files_with_extension(directory, extension):
                 count += 1
     return count
 
-global data_dict, step, Max_step, dataset_path 
+global data_dict, step, Max_step, dataset_path, recording
 
 # parameters
 step = 0
-Max_step = 2000
+Max_step = 200
+recording = False
 directory_path = f'/home/philaptop/wfy/dp_data'
 extension = '.hdf5' 
 episode_idx = count_files_with_extension(directory_path, extension)
@@ -48,6 +50,7 @@ data_dict = {
         # '/observations/current': [],
         }
 
+
 class SampleNode(Node):
     def __init__(self):
         super().__init__('SampleNode')
@@ -62,6 +65,9 @@ class SampleNode(Node):
         self.follow_cmd = RobotCmd()
 
         self.start_follow = False
+        
+        self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
+        self.keyboard_listener.start()
 
     def timer_callback(self):
         self.follow_publisher_.publish(self.follow_cmd)
@@ -73,7 +79,9 @@ class SampleNode(Node):
     def master_publish(self,cmd: RobotCmd):
         self.master_publisher_.publish(cmd)
 
-    # def master_callback(self.msg):
+    def follow_publish(self,cmd: RobotCmd):
+        self.follow_publisher_.publish(cmd)
+
 
     def follow_callback(self, msg):
         if self.start_follow:
@@ -81,6 +89,22 @@ class SampleNode(Node):
             self.follow_cmd.joint_pos = msg.joint_pos[:6]
             self.follow_cmd.end_pos = msg.end_pos
             self.follow_cmd.gripper = msg.joint_pos[6]
+
+    async def setup_on_shutdown(self):
+        rclpy.on_shutdown(self.cleanup)
+    
+    def on_press(self,key):
+        self.start_follow = False
+        if key == keyboard.Key.esc:
+            pass
+        rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
+        cmd = RobotCmd()
+        cmd.mode = 1        # Reset to initial Condition
+        self.master_publisher_.publish(cmd)
+        self.master_publish(cmd)
+        self.follow_publisher_.publish(cmd)
+        rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
+        rclpy.shutdown()
 
 
 def callback(img1, img2, follow_status):
@@ -154,8 +178,9 @@ def callback(img1, img2, follow_status):
                 video_writer.write(img)
             video_writer.release()
         
-        rclpy.shutdown()
-        quit("sample successfully!")
+        # rclpy.shutdown()
+        # quit("sample successfully!")
+
         
 def main():
     #config my camera
@@ -197,8 +222,14 @@ def main():
     # ats = ApproximateTimeSynchronizer([master2,follow2,follow2_pos,image_mid,image_right],slop=0.03,queue_size=2)
     ats = ApproximateTimeSynchronizer([img1, img2, follow_status],slop=0.03,queue_size=2)
     ats.registerCallback(callback)
-    
-    rclpy.spin(node)
+
+    # signal.signal(signal.SIGINT, node.sigint_hanler)
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        pass
 
 if __name__ =="__main__":
     main()
