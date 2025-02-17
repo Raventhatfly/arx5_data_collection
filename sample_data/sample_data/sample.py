@@ -33,7 +33,7 @@ global data_dict, step, Max_step, dataset_path, recording
 
 # parameters
 step = 0
-Max_step = 200
+Max_step = 2000
 recording = False
 directory_path = f'/home/philaptop/wfy/dp_data'
 extension = '.hdf5' 
@@ -89,22 +89,20 @@ class SampleNode(Node):
             self.follow_cmd.joint_pos = msg.joint_pos[:6]
             self.follow_cmd.end_pos = msg.end_pos
             self.follow_cmd.gripper = msg.joint_pos[6]
-
-    async def setup_on_shutdown(self):
-        rclpy.on_shutdown(self.cleanup)
+            # self.follow_cmd.joint_vel = msg.joint_vel
+            # self.follow_cmd.joint_cur = msg.joint_cur
     
     def on_press(self,key):
         self.start_follow = False
         if key == keyboard.Key.esc:
-            pass
-        rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
-        cmd = RobotCmd()
-        cmd.mode = 1        # Reset to initial Condition
-        self.master_publisher_.publish(cmd)
-        self.master_publish(cmd)
-        self.follow_publisher_.publish(cmd)
-        rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
-        rclpy.shutdown()
+            rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
+            cmd = RobotCmd()
+            cmd.mode = 1        # Reset to initial Condition
+            
+            self.follow_publisher_.publish(cmd)
+            self.master_publisher_.publish(cmd)
+            rclpy.logging.get_logger("sample_node").info("Arm Reset to initial Condition")
+            rclpy.shutdown()
 
 
 def callback(img1, img2, follow_status):
