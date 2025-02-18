@@ -45,7 +45,7 @@ import scipy.spatial.transform as st
 
 
 from diffusion_policy.common.precise_sleep import precise_wait
-# from diffusion_policy.diffusion_policy.real_word.real_inference_utils import get_real_obs_resolution, get_real_obs_dict
+from diffusion_policy.real_world.real_inference_util import get_real_obs_resolution, get_real_obs_dict
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
@@ -54,9 +54,10 @@ from diffusion_policy.common.cv2_util import get_image_transform
 from diffusion_policy.shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
 
 import rclpy
+import rclpy.logging
 from rclpy.node import Node
-# from message_filters import ApproximateTimeSynchronizer, Subscriber
-import message_filters
+from message_filters import ApproximateTimeSynchronizer, Subscriber
+
 from arm_control.msg import PosCmd
 from arx5_arm_msg.msg import RobotCmd, RobotStatus
 from sensor_msgs.msg import Image
@@ -78,24 +79,27 @@ class ArxControl(Node):
     def __init__(self):
         super().__init__('arx_control')
 
-        self.pub_ = self.create_publisher(RobotCmd, 'arm_cmd', 10)
-        self.sub_ = self.create_subscription(
-                RobotStatus,'arm_status', self.listener_callback,10)
+        self.pub_ = self.create_publisher(RobotCmd, '/arm_follow_cmd', 10)
+        # self.sub_ = self.create_subscription(
+        #         RobotStatus,'arm_status', self.listener_callback,10)
         self.pub_
-        self.sub_  # prevent unused variable warning
-        timer_period = 0.2
+        # self.sub_  # prevent unused variable warning
+        timer_period = 0.1
         self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.cmd_ = None
+        self.cmd = RobotCmd()
+        self.cmd.mode = 5
 
-    def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg)
-        self.arm_status_ = msg
+        loop_rate = 0.1
+        self.rate = self.create_rate(loop_rate, self.get_clock())
+
+    # def listener_callback(self, msg):
+    #     self.get_logger().info('I heard: "%s"' % msg)
+    #     self.arm_status_ = msg
     
     def timer_callback(self):
-        msg = RobotCmd()
         # msg.data[0] = 0.0
-        self.pub_.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg)
+        self.pub_.publish(self.cmd)
+        # self.get_logger().info('Publishing: "%s"' % msg)
 
     def set_cmd(self, cmd):
         self.cmd_ = cmd
@@ -119,12 +123,16 @@ def main(
     # steps_per_inference,
     # max_step
 ):
+    steps_per_inference = 8
+    output_path = "/home/philaptop/wfy/output"
+    max_step = 1000
+
     rclpy.init()
-    arx_control = ArxControl()
+    node = ArxControl()
 
     global obs_ring_buffer, current_step
     frequency = 10
-    print(os.getcwd())
+    # print(os.getcwd())
     ckpt_path = "/home/philaptop/wfy/ckpt/14.15.51_train_diffusion_unet_image_drawer/checkpoints/latest.ckpt"
 
     dt = 1 / frequency
@@ -140,7 +148,7 @@ def main(
     # exit()
     # cfg._target_ = "diffusion_policy." + cfg._target_  # can delete
     # cfg._target_ = "diffusion_policy.workspace.train_workspace.TrainDiffusionWorkspace"
-    print(sys.path)
+    # print(sys.path)
     import wandb
     import diffusion_policy.workspace.train_diffusion_unet_image_workspace
     cfg._target_ = "diffusion_policy.workspace.train_diffusion_unet_image_workspace.TrainDiffusionUnetImageWorkspace"
@@ -171,9 +179,9 @@ def main(
     shm_manager.start()
 
     examples = dict()
-    examples["mid"] = np.empty(shape=obs_res[::-1] + (3,), dtype=np.uint8)
-    examples["right"] = np.empty(shape=obs_res[::-1] + (3,), dtype=np.uint8)
-    examples["eef_qpos"] = np.empty(shape=(7,), dtype=np.float64)
+    examples["gripper"] = np.empty(shape=obs_res[::-1] + (3,), dtype=np.uint8)
+    examples["top"] = np.empty(shape=obs_res[::-1] + (3,), dtype=np.uint8)
+    examples["eef_qpos"] = np.empty(shape=(6,), dtype=np.float64)
     examples["qpos"] = np.empty(shape=(7,), dtype=np.float64)
     # examples["mid_orig"] = np.empty(shape=(480, 640, 3, ), dtype=np.uint8)
     # examples["right_orig"] = np.empty(shape=(480, 640, 3, ), dtype=np.uint8)
@@ -219,14 +227,15 @@ def main(
 
     # ros init and subscriber
     # rclpy.init("eval_real_ros")
-    arm_status = message_filters.Subscriber("arm_status", RobotStatus)
+    arm_status = Subscriber(node, RobotStatus, "/arm_follow_status")
     # qpos = Subscriber("joint_information2", JointInformation)
-    img1 = message_filters.Subscriber("img2", Image)
-    img2 = message_filters.Subscriber("img1", Image)
+
+    img1 = Subscriber(node, Image,"/camera1/camera/color/image_rect_raw")
+    img2 = Subscriber(node, Image,"/camera2/camera/color/image_rect_raw")
     # control_robot2 = rospy.Publisher("test_right", JointControl, queue_size=10)
     # control_robot2 = rclpy.Publisher("follow_joint_control_2", JointControl, queue_size=10)
-    arm_control_pub = rclpy.create_publisher(PosCmd, 'arm_cmd', 10)
-    ats = message_filters.ApproximateTimeSynchronizer(
+    # arm_control_pub = rclpy.create_publisher(PosCmd, 'arm_cmd', 10)
+    ats = ApproximateTimeSynchronizer(
         [arm_status, img1, img2], queue_size=10, slop=0.1
     )
     ats.registerCallback(
@@ -237,9 +246,9 @@ def main(
 
 
     # # data ??
-    # last_data = None
+    last_data = None
     # right_control = JointControl()
-    joint_data = arx_control.arm_status_
+    # joint_data = node.arm_status_
     
 
     # start
@@ -257,8 +266,11 @@ def main(
     
 
     # inference loop
-    while not rclpy.ok():
-        rclpy.spin_once(arx_control)
+    while rclpy.ok():
+        for i in range(400):
+            rclpy.spin_once(node)
+        # rclpy.spin(node)
+        # node.rate.sleep()
         
         if current_step >= max_step:
             break
@@ -309,19 +321,23 @@ def main(
             print(f"Inference latency {steps_per_inference/(time.perf_counter() - test_t_start)}")
 
         # visualization
-        mid_img = obs_dict["mid"][0, -1]
+        mid_img = obs_dict["gripper"][0, -1]
         mid_img = mid_img.permute(1, 2, 0)
         mid_img = mid_img.cpu().numpy()
         mid_img = (255 * mid_img).astype(np.uint8)
 
-        right_img = obs_dict["right"][0, -1]
+        right_img = obs_dict["top"][0, -1]
         right_img = right_img.permute(1, 2, 0)
         right_img = right_img.cpu().numpy()
         right_img = (255 * right_img).astype(np.uint8)
 
-        vis_img = np.zeros((224, 448, 3), dtype=np.uint8)
-        vis_img[:, :224, :] = mid_img
-        vis_img[:, 224:448, :] = right_img
+        # vis_img = np.zeros((224, 448, 3), dtype=np.uint8)
+        # vis_img[:, :224, :] = mid_img
+        # vis_img[:, 224:448, :] = right_img
+
+        vis_img = np.zeros((480, 1280, 3), dtype=np.uint8)
+        vis_img[:, :640, :] = mid_img
+        vis_img[:, 640:1280, :] = right_img
 
         # cv2.imshow('Multi Camera Viewer', vis_img)
         # output_video.write(vis_img)
@@ -355,11 +371,17 @@ def main(
         print(action)
         print("==================================")
         for item in action:
-            right_control.joint_pos = item
+            # right_control.joint_pos = item
 
             # control_robot2.publish(right_control)
 
-            rate.sleep()
+            # rate.sleep()
+
+            node.cmd.joint_pos = np.array(item[:6], dtype=np.float64)
+            node.cmd.gripper = float(item[6])
+
+            # node.rate.sleep()
+            precise_wait(0.1)
 
         precise_wait(t_cycle_end - frame_latency)
         iter_idx += steps_per_inference
@@ -372,8 +394,9 @@ def main(
 
     
 
-def callback(eef_qpos, qpos, image_mid, image_right, output_video_visualization, output_video_mid, output_video_right, max_step, start_time):
+def callback(arm_status, image_mid, image_right, output_video_visualization, output_video_mid, output_video_right, max_step, start_time):
     global obs_ring_buffer, current_step
+    rclpy.logging.get_logger("eval_real_ros").info("Received data")
 
     mid = image_mid
     right = image_right
@@ -381,41 +404,48 @@ def callback(eef_qpos, qpos, image_mid, image_right, output_video_visualization,
     receive_time = time.time()
 
     obs_data = dict()
-    obs_data["eef_qpos"] = np.array(
-        [
-            eef_qpos.x,
-            eef_qpos.y,
-            eef_qpos.z,
-            eef_qpos.roll,
-            eef_qpos.pitch,
-            eef_qpos.yaw,
-            eef_qpos.gripper,
-        ]
-    )
-    gripper_width = qpos.joint_pos[6]
+    eef_qpos = arm_status.end_pos
+    qpos = arm_status.joint_pos
+    # obs_data["eef_qpos"] = np.array(
+    #     [
+    #         eef_qpos.x,
+    #         eef_qpos.y,
+    #         eef_qpos.z,
+    #         eef_qpos.roll,
+    #         eef_qpos.pitch,
+    #         eef_qpos.yaw,
+    #         eef_qpos.gripper,
+    #     ]
+    # )
+
+    obs_data["eef_qpos"] = eef_qpos
+    gripper_width = qpos[6]
 
     # gripper width calibration
     # gripper_width = (gripper_width - actual_gripper_width_min) / (actual_gripper_width_max - actual_gripper_width_min) * \
     #                 (gripper_width_max - gripper_width_min) + gripper_width_min
 
-    gripper_width = gripper_width / 12 - 0.016 
-    obs_data["qpos"] = np.array(
-        [
-            qpos.joint_pos[0],
-            qpos.joint_pos[1],
-            qpos.joint_pos[2],
-            qpos.joint_pos[3],
-            qpos.joint_pos[4],
-            qpos.joint_pos[5],
-            gripper_width
-        ]
-    )
+    # gripper_width = gripper_width / 12 - 0.016 
+    # obs_data["qpos"] = np.array(
+    #     [
+    #         qpos.joint_pos[0],
+    #         qpos.joint_pos[1],
+    #         qpos.joint_pos[2],
+    #         qpos.joint_pos[3],
+    #         qpos.joint_pos[4],
+    #         qpos.joint_pos[5],
+    #         gripper_width
+    #     ]
+    # )
+    obs_data["qpos"] = qpos
 
     # process images observation
     img1 = bridge.imgmsg_to_cv2(mid, "bgr8")
     img2 = bridge.imgmsg_to_cv2(right, "bgr8")
-    obs_data["img1"] = transform(mid)
-    obs_data["img2"] = transform(right)
+    # obs_data["gripper"] = transform(mid)
+    # obs_data["top"] = transform(right)
+    obs_data["gripper"] = img1
+    obs_data["top"] = img2
     obs_data["timestamp"] = receive_time
     # obs_data["mid_orig"] = mid
     # obs_data["right_orig"] = right
@@ -442,12 +472,12 @@ def callback(eef_qpos, qpos, image_mid, image_right, output_video_visualization,
 
     # save video
     if current_step < max_step and time.time() > start_time:
-        output_video_mid.write(mid)
-        output_video_right.write(right)
+        output_video_mid.write(img1)
+        output_video_right.write(img2)
 
         canvas = np.zeros((480, 1280, 3), dtype=np.uint8)
-        canvas[:, :640, :] = mid
-        canvas[:, 640:1280, :] = right
+        canvas[:, :640, :] = img1
+        canvas[:, 640:1280, :] = img2
 
         output_video_visualization.write(canvas)
 
@@ -469,7 +499,7 @@ def transform(data, video_capture_resolution=(640, 480), obs_image_resolution=(2
                 # obs output rgb
                 bgr_to_rgb=False,
             )
-    
+    data = np.array(data)
     tf_data = color_tf(data)
     return tf_data
 
