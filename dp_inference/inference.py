@@ -268,7 +268,7 @@ def main(
     # inference loop
     while rclpy.ok():
         for i in range(400):
-            rclpy.spin_once(node)
+            rclpy.spin_once(node, timeout_sec = 1)
         # rclpy.spin(node)
         # node.rate.sleep()
         
@@ -368,7 +368,7 @@ def main(
             
         # execute actions
         print("Execute Action!")
-        print(action)
+        # print(action)
         print("==================================")
         for item in action:
             # right_control.joint_pos = item
@@ -377,11 +377,16 @@ def main(
 
             # rate.sleep()
 
-            node.cmd.joint_pos = np.array(item[:6], dtype=np.float64)
-            node.cmd.gripper = float(item[6])
+            # node.cmd.joint_pos = np.array(item[:6], dtype=np.float64)
+            # node.cmd.gripper = float(item[6])
 
             # node.rate.sleep()
-            precise_wait(0.1)
+            
+            # rclpy.spin_once(node,timeout_sec=0.1)
+
+            time.sleep(2)
+            print(item)
+            # precise_wait(0.1)
 
         precise_wait(t_cycle_end - frame_latency)
         iter_idx += steps_per_inference
@@ -396,7 +401,7 @@ def main(
 
 def callback(arm_status, image_mid, image_right, output_video_visualization, output_video_mid, output_video_right, max_step, start_time):
     global obs_ring_buffer, current_step
-    rclpy.logging.get_logger("eval_real_ros").info("Received data")
+    # rclpy.logging.get_logger("eval_real_ros").info("Received data")
 
     mid = image_mid
     right = image_right
