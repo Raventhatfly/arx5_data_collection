@@ -24,7 +24,7 @@ import os
 import sys
 
 # sys.path.append("/home/dc/mambaforge/envs/robodiff/lib/python3.9/site-packages")
-sys.path.append("/home/philaptop/mambaforge/envs/robodiff/lib/python3.9/site-packages")
+# sys.path.append("/home/philaptop/mambaforge/envs/robodiff/lib/python3.9/site-packages")
 # sys.path.append(
 #     "/media/dc/CLEAR/arx/dp_inference/dp"
 # )
