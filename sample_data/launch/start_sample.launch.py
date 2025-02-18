@@ -40,7 +40,7 @@ def generate_launch_description():
         parameters=[{'serial_no': '230322271473',  # Replace with your camera's serial number
                     'device_type': 'd405',  # Replace with your camera model
                     'enable_sync'   : True,
-                    'depth_module.color_profile': '640x480x30',
+                    'depth_module.color_profile': '640x480x15',
                     'enable_depth': False,          # Disable depth stream
                     'enable_infra': False,          # Disable infrared stream
                     'enable_infra1': False,          # Disable infrared stream
@@ -57,7 +57,7 @@ def generate_launch_description():
         parameters=[{'serial_no': '230322277180',  # Replace with your camera's serial number
                     'device_type': 'd405',          # Replace with your camera model
                     'enable_sync'   : True,
-                    'depth_module.color_profile': '640x480x30',
+                    'depth_module.color_profile': '640x480x15',
                     'enable_depth': False,          # Disable depth stream
                     'enable_infra': False,          # Disable infrared stream
                     'enable_infra1': False,          # Disable infrared stream

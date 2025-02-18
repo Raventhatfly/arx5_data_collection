@@ -5,6 +5,8 @@ Arx5 Single Arm Data Collection Repo
 ```shell
 ros2 launch sample_data start_sample.launch.py
 ```
+## Stop Sampling Process
+Press `esc` to stop an episode.
 
 ## Credit
 https://github.com/ARXroboticsX/ARX_R5

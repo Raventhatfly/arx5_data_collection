@@ -88,7 +88,7 @@ class SampleNode(Node):
             self.follow_cmd.mode = 5
             self.follow_cmd.joint_pos = msg.joint_pos[:6]
             self.follow_cmd.end_pos = msg.end_pos
-            self.follow_cmd.gripper = msg.joint_pos[6]
+            self.follow_cmd.gripper = msg.joint_pos[6] * 5
             # self.follow_cmd.joint_vel = msg.joint_vel
             # self.follow_cmd.joint_cur = msg.joint_cur
     
@@ -189,7 +189,7 @@ def callback(img1, img2, follow_status):
 
             video_path = f'{video_path}video.mp4'  # Assuming dataset_path ends with ".hdf5"
             height, width, _ = images[0].shape
-            fps = 10  # Publish Rate 10 Hz
+            fps = 15  # Publish Rate 10 Hz
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
             for img in images:
